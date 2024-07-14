@@ -1,0 +1,85 @@
+from pyspark.sql import SparkSession
+
+# Initialize a Spark session
+spark = SparkSession.builder.appName("Temperature Data Analysis").getOrCreate()
+
+# Load the dataset into a Spark DataFrame
+file_path = "/FileStore/tables/TEMP_ANNUAL_SEASONAL_MEAN-1.csv"
+df = spark.read.csv(file_path, header=True, inferSchema=True)
+
+# Show the first few rows of the DataFrame
+df.show()
+
+# Display DataFrame schema
+df.printSchema()
+# Drop rows with missing values
+df_cleaned = df.dropna()
+
+# Show cleaned DataFrame
+df_cleaned.show()
+# Create a temporary view for SQL querying
+df_cleaned.createOrReplaceTempView("temp_view")
+annual_mean_temp = spark.sql("SELECT Year, AVG(ANNUAL) as avg_temp FROM temp_view GROUP BY Year")
+annual_mean_temp.show()
+temp_trend = spark.sql("""
+    SELECT Year, AVG(ANNUAL) as avg_temp
+    FROM temp_view
+    GROUP BY Year
+    ORDER BY Year
+""")
+temp_trend.show()
+
+seasonal_temp_variation = spark.sql("""
+    SELECT Year, 
+           AVG(`JAN-FEB`) as avg_jan_feb, 
+           AVG(`MAR-MAY`) as avg_mar_may, 
+           AVG(`JUN-SEP`) as avg_jun_sep, 
+           AVG(`OCT-DEC`) as avg_oct_dec
+    FROM temp_view
+    GROUP BY Year
+    ORDER BY Year
+""")
+seasonal_temp_variation.show()
+import matplotlib.pyplot as plt
+import pandas as pd
+# Convert Spark DataFrames to Pandas DataFrames for visualization
+annual_mean_temp_pd = annual_mean_temp.toPandas()
+temp_trend_pd = temp_trend.toPandas()
+seasonal_temp_variation_pd = seasonal_temp_variation.toPandas()
+
+# Visualize the annual mean temperature
+plt.figure(figsize=(10, 6))
+plt.plot(annual_mean_temp_pd['Year'], annual_mean_temp_pd['avg_temp'], marker='o')
+plt.title("Annual Mean Temperature Over the Years")
+plt.xlabel("Year")
+plt.ylabel("Average Temperature")
+plt.grid(True)
+plt.show()
+
+# Visualize the temperature trend
+plt.figure(figsize=(10, 6))
+plt.plot(temp_trend_pd['Year'], temp_trend_pd['avg_temp'], marker='o', color='r')
+plt.title("Temperature Trend Over the Years")
+plt.xlabel("Year")
+plt.ylabel("Average Temperature")
+plt.grid(True)
+plt.show()
+
+# Visualize the seasonal temperature variation
+plt.figure(figsize=(10, 6))
+plt.plot(seasonal_temp_variation_pd['Year'], seasonal_temp_variation_pd['avg_jan_feb'], marker='o', label='JAN-FEB')
+plt.plot(seasonal_temp_variation_pd['Year'], seasonal_temp_variation_pd['avg_mar_may'], marker='o', label='MAR-MAY')
+plt.plot(seasonal_temp_variation_pd['Year'], seasonal_temp_variation_pd['avg_jun_sep'], marker='o', label='JUN-SEP')
+plt.plot(seasonal_temp_variation_pd['Year'], seasonal_temp_variation_pd['avg_oct_dec'], marker='o', label='OCT-DEC')
+plt.title("Seasonal Temperature Variation Over the Years")
+plt.xlabel("Year")
+plt.ylabel("Average Temperature")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+
+
+
+
